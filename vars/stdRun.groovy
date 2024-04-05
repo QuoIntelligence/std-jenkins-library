@@ -1,6 +1,6 @@
 #!/usr/bin/env groovy
 
-def call(Map params = [:]) {
+def call(params = [:]) {
     def block = params.block
     def action = params.action
     
