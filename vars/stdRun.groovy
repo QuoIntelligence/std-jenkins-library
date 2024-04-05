@@ -1,6 +1,8 @@
 #!/usr/bin/env groovy
 
-def call(String block, String action) {
+def call(Map params = [:]) {
+    def block = params.block
+    def action = params.action
     
     loadResourceScript "execute.sh"
 
