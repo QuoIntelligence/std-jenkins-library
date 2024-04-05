@@ -1,12 +1,15 @@
 #!/usr/bin/env groovy
 
-def call(String hit) {
+def call(Map params = [:]) {
+    def block = params.block
+    def action = params.action
+    
     loadResourceScript "execute.sh"
 
     def hits = readJSON file: "${env.TMP_DIR}/outputs.json"
     if (hits) {
-        if (hits[hit]) {
-            hits[hit]["publish"].each {
+        if (hits[block]) {
+            hits[block][action].each {
                 writeJSON json: it, file: "${env.TMP_DIR}/each.json", pretty: 2
                 sh """
                    declare action target cell block actionDrv
@@ -20,7 +23,7 @@ def call(String hit) {
                 """
             }
         } else {
-            echo "no ${hit} in hits"
+            echo "no ${block} in hits"
         }
     } else {
         echo "hits is null"
