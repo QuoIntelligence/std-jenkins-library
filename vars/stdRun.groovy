@@ -1,10 +1,10 @@
 #!/usr/bin/env groovy
 
 def call(Map params = [:]) {
+    loadResourceScript "execute.sh"
+
     def block = params.block
     def action = params.action
-    
-    loadResourceScript "execute.sh"
 
     def hits = readJSON file: "${env.TMP_DIR}/outputs.json"
     if (hits) {
