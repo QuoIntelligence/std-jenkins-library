@@ -18,34 +18,40 @@ with contributions from [David Arnold](https://github.com/blaggacao),
 and many more amazing people (see end of file for a full list)._
 -->
 ---
-A Jenkins port of GitHub Action for _[Standard]_. Use Jenkins Standard Library to automatically detect CI targets that need re-doing.
+A Jenkins port of [GitHub Action for _Standard_](https://github.com/divnix/std-action). Use Jenkins Standard Library to automatically detect CI targets that need re-doing.
 
 Standard is a nifty DevOps framework that enables an efficient Software Development Life Cycle (SDLC) with the power of Nix via Flakes.
 
 ### Usage
 
 ```groovy
-library "std-jenkins-library"
+library 'std-jenkins-library'
 
 pipeline {
   agent any
-  
+
   stages {
     stage('Discover') {
       steps {
-        stdDiscover()
+        script {
+          stdDiscover()
+        }
       }
     }
-    
+
     stage('Build') {
       steps {
-        stdRun("packages")
+        script {
+          stdRun(block: 'packages', action:'publish')
+        }
       }
     }
-    
+
     stage('Publish') {
       steps {
-        stdRun("oci-images")
+        script {
+          stdRun(block: 'oci-images', action:'publish')
+        }
       }
     }
   }
