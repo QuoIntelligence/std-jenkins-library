@@ -6,6 +6,18 @@ def call(Map params = [:]) {
     def block = params.block
     def action = params.action
 
+    env.PRJ_ROOT = pwd()
+    env.PRJ_DATA_HOME = "${env.TMP_DIR}/.data"
+    env.PRJ_CACHE_HOME = "${env.TMP_DIR}/.cache"
+    env.PRJ_CONFIG_HOME = "${env.TMP_DIR}/.config"
+    env.PRJ_RUNTIME_DIR = "${env.TMP_DIR}/.run"
+    env.PRJ_PATH = "${env.TMP_DIR}/.bin"
+    env.TERM = "xterm-256color"
+
+    env.SKIP_DRV_EXPORT = false
+    env.DRV_IMPORT_FROM_DISCOVERY = false
+    env.EVALSTORE_IMPORT = "${env.TMP_DIR}/eval-store"
+
     def hits = readJSON file: "${env.TMP_DIR}/outputs.json"
     if (hits) {
         if (hits[block]) {

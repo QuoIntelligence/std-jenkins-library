@@ -6,9 +6,6 @@ def call() {
 
       env.TMP_DIR = pwd(tmp:true)
 
-      env.SKIP_DRV_EXPORT = false
-      env.DRV_IMPORT_FROM_DISCOVERY = false
-      env.EVALSTORE_IMPORT = "${env.TMP_DIR}/eval-store"
       env.EVALSTORE_EXPORT = "${env.TMP_DIR}/eval-store"
       env.GITHUB_OUTPUT = "${env.TMP_DIR}/outputs"
       env.flake_url = "."
