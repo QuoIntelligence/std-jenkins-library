@@ -14,7 +14,6 @@ def call(Map params = [:]) {
     env.PRJ_PATH = "${env.TMP_DIR}/.bin"
     env.TERM = "xterm-256color"
 
-    env.SKIP_DRV_EXPORT = false
     env.DRV_IMPORT_FROM_DISCOVERY = false
     env.EVALSTORE_IMPORT = "${env.TMP_DIR}/eval-store"
 

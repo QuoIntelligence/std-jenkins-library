@@ -8,6 +8,7 @@ def call() {
 
       env.EVALSTORE_EXPORT = "${env.TMP_DIR}/eval-store"
       env.GITHUB_OUTPUT = "${env.TMP_DIR}/outputs"
+      env.SKIP_DRV_EXPORT = false
       env.flake_url = "."
 
       sh "bash ./eval.sh"
