@@ -15,6 +15,7 @@ def call(Map params = [:]) {
     env.TERM = "xterm-256color"
 
     env.DRV_IMPORT_FROM_DISCOVERY = false
+    env.REMOTE_STORE = false
     env.EVALSTORE_IMPORT = "${env.TMP_DIR}/eval-store"
 
     def hits = readJSON file: "${env.TMP_DIR}/outputs.json"
