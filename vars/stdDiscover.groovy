@@ -11,6 +11,7 @@ def call() {
       env.SKIP_DRV_EXPORT = false
       env.flake_url = "."
 
+      sh "find \$TMP_DIR -mindepth 1 -delete"
       sh "bash ./eval.sh"
       sh "grep ^json $GITHUB_OUTPUT | cut -d \"=\" -f2 > \$TMP_DIR/outputs.json"
 }
