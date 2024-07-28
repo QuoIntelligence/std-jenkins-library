@@ -6,6 +6,7 @@ set -o pipefail
 declare EVAL PROVISIONED NIX_CONFIG
 
 flake_url=${flake_url:="github:$OWNER_AND_REPO/$SHA"}
+discover_apply=${discover_apply:="x: x"}
 
 function eval_fn() {
   echo "::debug::Running $(basename "${BASH_SOURCE[0]}"):eval()"
@@ -20,7 +21,8 @@ function eval_fn() {
   # will be a list of actions
   EVAL=$(
     command nix eval --show-trace --json \
-      "$flake_url#__std.ci.$system"
+      "$flake_url#__std.ci.$system" \
+      --apply "$discover_apply"
   )
 
   if [ "$EVAL" = "[]" ]; then
