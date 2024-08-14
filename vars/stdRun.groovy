@@ -5,6 +5,7 @@ def call(Map params = [:]) {
 
     def block = params.block
     def action = params.action
+    def envConfig = params.get('envConfig', [:])
 
     env.PRJ_ROOT = pwd()
     env.PRJ_DATA_HOME = "${env.TMP_DIR}/.data"
@@ -23,16 +24,20 @@ def call(Map params = [:]) {
     def hits = readJSON(file: "${env.TMP_DIR}/outputs.json")
 
     if (hits[block]?.containsKey(action)) {
-      hits[block][action].each {
-        tasks[it["jobName"]] = {
+      hits[block][action].each { it ->
+        def jobName = it["jobName"]
+        def target = it["name"]
+        def additionalEnvVars = envConfig[target] ?: []
+
+        tasks[jobName] = {
           withEnv([
             "action=${it['action']}",
-            "target=${it['name']}",
+            "target=${target}",
             "cell=${it['cell']}",
             "block=${it['block']}",
             "actionDrv=${it['actionDrv']}"
-          ]) {
-            stage(it["jobName"]) {
+          ] + additionalEnvVars) {
+            stage(jobName) {
               sh "bash ./execute.sh"
             }
           }
