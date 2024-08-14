@@ -25,18 +25,16 @@ def call(Map params = [:]) {
     if (hits[block]?.containsKey(action)) {
       hits[block][action].each {
         tasks[it["jobName"]] = {
-          stage(it["jobName"]) {
-            writeJSON json: it, file: "${env.TMP_DIR}/${it['name']}.json", pretty: 2
-            sh """
-              declare action target cell block actionDrv
-              eval \"\$(jq -r '@sh "action=\\(.action) target=\\(.name) cell=\\(.cell) block=\\(.block) actionDrv=\\(.actionDrv)\"' < \$TMP_DIR/${it['name']}.json )\"
-              export action=\$action
-              export target=\$target
-              export cell=\$cell
-              export block=\$block
-              export actionDrv=\$actionDrv
-              bash ./execute.sh
-            """
+          withEnv([
+            "action=${it['action']}",
+            "target=${it['name']}",
+            "cell=${it['cell']}",
+            "block=${it['block']}",
+            "actionDrv=${it['actionDrv']}"
+          ]) {
+            stage(it["jobName"]) {
+              sh "bash ./execute.sh"
+            }
           }
         }
       }
