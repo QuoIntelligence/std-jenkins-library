@@ -6,6 +6,7 @@ def call(Map params = [:]) {
     def block = params.block
     def action = params.action
     def envConfig = params.get('envConfig', [:])
+    def useParallel = params.get('parallel', true) 
 
     env.PRJ_ROOT = pwd()
     env.PRJ_DATA_HOME = "${env.TMP_DIR}/.data"
@@ -44,6 +45,12 @@ def call(Map params = [:]) {
         }
       }
     }
-  
-    parallel(tasks)
+    if (useParallel) {
+        parallel(tasks)
+    } else {
+        // Sequential execution
+        tasks.each { jobName, task ->
+            task.call()
+        }
+    }
 }
