@@ -146,9 +146,9 @@ def getTasksByBlockAndAction(hits, block, action) {
  * Helper function to execute tasks.
  *
  * @param tasks    List of task objects to execute.
- * @param parallel Boolean indicating if tasks should run in parallel.
+ * @param isParallel Boolean indicating if tasks should run in parallel.
  */
-def executeTasks(List tasks, Boolean parallel) {
+def executeTasks(List tasks, Boolean isParallel) {
     // Ensure all tasks have unique jobNames
     def jobNames = tasks.collect { it.jobName }
     def duplicateJobNames = jobNames.findAll { jobName -> jobNames.count(jobName) > 1 }.unique()
@@ -165,7 +165,7 @@ def executeTasks(List tasks, Boolean parallel) {
         [(jobName): createTaskClosure(task)]
     }
 
-    if (parallel && taskMap.size() > 1) {
+    if (isParallel && taskMap.size() > 1) {
         // Execute all tasks in parallel
         parallel(taskMap)
     } else {
