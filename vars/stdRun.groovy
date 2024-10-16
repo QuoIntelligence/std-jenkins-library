@@ -149,13 +149,18 @@ def getTasksByBlockAndAction(hits, block, action) {
  * @param parallel Boolean indicating if tasks should run in parallel.
  */
 def executeTasks(List tasks, Boolean parallel) {
+    // Ensure all tasks have unique jobNames
+    def jobNames = tasks.collect { it.jobName }
+    def duplicateJobNames = jobNames.findAll { jobName -> jobNames.count(jobName) > 1 }.unique()
+    if (duplicateJobNames) {
+        error "Duplicate job names found: ${duplicateJobNames.join(', ')}. Ensure each job has a unique name."
+    }
+
+    // Build taskMap using collectEntries without referencing taskMap inside the closure
     Map taskMap = tasks.collectEntries { task ->
         def jobName = task.jobName
         if (!jobName) {
             error "Each task must have a 'jobName'."
-        }
-        if (taskMap.containsKey(jobName)) {
-            error "Job name '${jobName}' is not unique. Ensure each job has a unique name."
         }
         [(jobName): createTaskClosure(task)]
     }
