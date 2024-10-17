@@ -3,13 +3,16 @@
 /**
  * Executes a list of jobs either in parallel or sequentially.
  *
- * Supports two invocation styles:
- * 1. Old Way: stdRun(block: 'bootstrap', action: 'init', parallel: false)
- * 2. New Way: stdRun(jobNames: ['job1', 'job2'], parallel: true)
+ * Supports multiple invocation styles:
+ * 1. Old Way with Select:
+ *    stdRun(block: 'bootstrap', action: 'init', select: [key1: value1, key2: '!value2'], parallel: false)
+ * 2. New Way:
+ *    stdRun(jobNames: ['job1', 'job2'], parallel: true)
  *
  * @param params A map of parameters. Can include:
  *               - block: The block to filter (Old Way)
  *               - action: The action within the block (Old Way)
+ *               - select: A map of key-value pairs to filter tasks (supports '!' for inequality)
  *               - jobNames: A list of jobNames to execute (New Way)
  *               - parallel: Boolean indicating parallel execution (default: true)
  */
@@ -32,12 +35,13 @@ def call(Map params = [:]) {
             return
         }
 
+        // Execute the tasks
         executeTasks(tasks, parallelFlag)
     }
 }
 
 /**
- * Sets the global environment variables.
+ * Sets the global environment variables required for task execution.
  */
 def setGlobalEnvVars() {
     env.PRJ_ROOT = pwd()
@@ -56,7 +60,7 @@ def setGlobalEnvVars() {
 /**
  * Reads the hits JSON file and returns its content.
  *
- * @return The content of the hits JSON file.
+ * @return The content of the hits JSON file as a Map.
  */
 def readHitsJson() {
     def hitsFile = "${env.TMP_DIR}/outputs.json"
@@ -75,9 +79,11 @@ def readHitsJson() {
  */
 def getTasks(hits, Map params) {
     if (params.containsKey('jobNames')) {
+        // New Way: Retrieve tasks by jobNames
         return getTasksByJobNames(hits, params.jobNames)
     } else if (params.containsKey('block') && params.containsKey('action')) {
-        return getTasksByBlockAndAction(hits, params.block, params.action)
+        // Old Way: Retrieve tasks by block and action, with optional select criteria
+        return getTasksByBlockAndAction(hits, params.block, params.action, params.get('select', [:]))
     } else {
         error "Invalid parameters for stdRun. Provide either 'jobNames' or both 'block' and 'action'."
     }
@@ -117,6 +123,7 @@ def getTasksByJobNames(hits, jobNames) {
  * @return The task object if found, null otherwise.
  */
 def findTaskByJobName(hits, jobName) {
+    // Iterate over all blocks and actions to find the task with the given jobName
     hits.values().findResult { block ->
         block.values().findResult { actionTasks ->
             actionTasks.find { task -> task.jobName == jobName }
@@ -125,28 +132,55 @@ def findTaskByJobName(hits, jobName) {
 }
 
 /**
- * Retrieves tasks based on block and action.
+ * Retrieves tasks based on block, action, and optional select criteria.
  *
- * @param hits   The content of the hits JSON file.
- * @param block  The block name.
- * @param action The action name.
+ * @param hits    The content of the hits JSON file.
+ * @param block   The block name.
+ * @param action  The action name.
+ * @param select  A map of key-value pairs for additional filtering (supports '!' for inequality).
  * @return A list of tasks to execute.
  */
-def getTasksByBlockAndAction(hits, block, action) {
+def getTasksByBlockAndAction(hits, block, action, select = [:]) {
     if (!hits.containsKey(block)) {
         error "Block '${block}' does not exist in the hits JSON."
     }
     if (!hits[block].containsKey(action)) {
         error "Action '${action}' does not exist within block '${block}' in the hits JSON."
     }
-    return hits[block][action]
+    def tasks = hits[block][action]
+
+    // Apply select filters if provided
+    if (select && select instanceof Map) {
+        tasks = tasks.findAll { task ->
+            // For each key-value pair in select, check if the task matches the condition
+            select.every { key, value ->
+                if (!task.containsKey(key)) {
+                    return false
+                }
+                if (value instanceof String && value.startsWith('!')) {
+                    // Negative condition (not equal to)
+                    def actualValue = value.substring(1)
+                    return task[key] != actualValue
+                } else {
+                    // Positive condition (equal to)
+                    return task[key] == value
+                }
+            }
+        }
+    }
+
+    if (tasks.isEmpty()) {
+        echo "No tasks found for block '${block}', action '${action}' with select criteria: ${select}"
+    }
+
+    return tasks
 }
 
 /**
- * Helper function to execute tasks.
+ * Executes the provided tasks either in parallel or sequentially.
  *
- * @param tasks    List of task objects to execute.
- * @param isParallel Boolean indicating if tasks should run in parallel.
+ * @param tasks       List of task objects to execute.
+ * @param isParallel  Boolean indicating if tasks should run in parallel.
  */
 def executeTasks(List tasks, Boolean isParallel) {
     // Ensure all tasks have unique jobNames
@@ -156,7 +190,7 @@ def executeTasks(List tasks, Boolean isParallel) {
         error "Duplicate job names found: ${duplicateJobNames.join(', ')}. Ensure each job has a unique name."
     }
 
-    // Build taskMap using collectEntries without referencing taskMap inside the closure
+    // Build taskMap with jobNames as keys and closures as values
     Map taskMap = tasks.collectEntries { task ->
         def jobName = task.jobName
         if (!jobName) {
@@ -167,18 +201,20 @@ def executeTasks(List tasks, Boolean isParallel) {
 
     if (isParallel && taskMap.size() > 1) {
         // Execute all tasks in parallel
+        echo "Executing ${taskMap.size()} tasks in parallel."
         parallel(taskMap)
     } else {
         // Execute tasks sequentially
+        echo "Executing ${taskMap.size()} tasks sequentially."
         taskMap.values().each { it.call() }
     }
 }
 
 /**
- * Creates a task closure for execution.
+ * Creates a closure for executing a task.
  *
  * @param task The task object.
- * @return A closure that executes the task.
+ * @return A closure that executes the task when called.
  */
 def createTaskClosure(task) {
     def envVars = buildEnvVars(task)
@@ -198,7 +234,7 @@ def createTaskClosure(task) {
  * Builds environment variables for a task.
  *
  * @param task The task object.
- * @return A list of environment variables.
+ * @return A list of environment variable strings in the format 'KEY=VALUE'.
  */
 def buildEnvVars(task) {
     def baseEnvVars = [
@@ -208,6 +244,7 @@ def buildEnvVars(task) {
         "block=${task.block}",
         "actionDrv=${task.actionDrv}"
     ]
+    // Include any additional environment variables specified in the task
     def additionalEnvVars = task.get("envConfig", [])
     return baseEnvVars + additionalEnvVars
 }
