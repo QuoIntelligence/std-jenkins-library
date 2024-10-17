@@ -105,13 +105,16 @@ def getTasksByJobNames(hits, jobNames) {
         return []
     }
 
-    def tasks = jobNames.collect { jobName ->
+    def tasks = []
+    jobNames.each { jobName ->
         def task = findTaskByJobName(hits, jobName)
         if (!task) {
-            error "Job with jobName '${jobName}' not found in outputs.json."
+            echo "WARNING: Job with jobName '${jobName}' not found in outputs.json. Skipping."
+        } else {
+            tasks << task
         }
-        return task
     }
+
     return tasks
 }
 
@@ -141,13 +144,17 @@ def findTaskByJobName(hits, jobName) {
  * @return A list of tasks to execute.
  */
 def getTasksByBlockAndAction(hits, block, action, select = [:]) {
+    def tasks = []
+
     if (!hits.containsKey(block)) {
-        error "Block '${block}' does not exist in the hits JSON."
+        echo "WARNING: Block '${block}' does not exist in the hits JSON. No tasks to execute."
+        return tasks
     }
     if (!hits[block].containsKey(action)) {
-        error "Action '${action}' does not exist within block '${block}' in the hits JSON."
+        echo "WARNING: Action '${action}' does not exist within block '${block}' in the hits JSON. No tasks to execute."
+        return tasks
     }
-    def tasks = hits[block][action]
+    tasks = hits[block][action]
 
     // Apply select filters if provided
     if (select && select instanceof Map) {
@@ -190,38 +197,53 @@ def executeTasks(List tasks, Boolean isParallel) {
         error "Duplicate job names found: ${duplicateJobNames.join(', ')}. Ensure each job has a unique name."
     }
 
-    // Build taskMap with jobNames as keys and closures as values
-    Map taskMap = tasks.collectEntries { task ->
-        def jobName = task.jobName
-        if (!jobName) {
-            error "Each task must have a 'jobName'."
-        }
-        [(jobName): createTaskClosure(task)]
+    if (tasks.isEmpty()) {
+        echo "No tasks to execute after filtering."
+        return
     }
 
-    if (isParallel && taskMap.size() > 1) {
+    if (isParallel && tasks.size() > 1) {
+        // Build taskMap with jobNames as keys and closures as values
+        Map taskMap = tasks.collectEntries { task ->
+            def jobName = task.jobName
+            if (!jobName) {
+                error "Each task must have a 'jobName'."
+            }
+            [(jobName): createTaskClosure(task, true)]
+        }
+
         // Execute all tasks in parallel
         echo "Executing ${taskMap.size()} tasks in parallel."
         parallel(taskMap)
     } else {
-        // Execute tasks sequentially
-        echo "Executing ${taskMap.size()} tasks sequentially."
-        taskMap.values().each { it.call() }
+        // Execute tasks sequentially without creating additional stages
+        echo "Executing ${tasks.size()} tasks sequentially."
+        for (def task : tasks) {
+            def taskClosure = createTaskClosure(task, false)
+            taskClosure.call()
+        }
     }
 }
 
 /**
  * Creates a closure for executing a task.
  *
- * @param task The task object.
+ * @param task        The task object.
+ * @param createStage Boolean indicating whether to create a stage for the task.
  * @return A closure that executes the task when called.
  */
-def createTaskClosure(task) {
+def createTaskClosure(task, createStage = true) {
     def envVars = buildEnvVars(task)
     def jobName = task.jobName
     return {
         withEnv(envVars) {
-            stage(jobName) {
+            if (createStage) {
+                stage(jobName) {
+                    echo "Starting job: ${jobName}"
+                    sh "bash ./execute.sh"
+                    echo "Completed job: ${jobName}"
+                }
+            } else {
                 echo "Starting job: ${jobName}"
                 sh "bash ./execute.sh"
                 echo "Completed job: ${jobName}"
