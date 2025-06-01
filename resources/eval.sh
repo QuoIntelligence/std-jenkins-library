@@ -62,7 +62,7 @@ function provision() {
         else
           echo >&2 " - drop it."
           echo "$action" | base64 --decode \
-            | jq -c '. + {skipped: true} | @base64'
+            | jq -rc '. + {skipped: true} | @base64'
         fi
       else
         echo >&2 " - take it (no proviso)."
