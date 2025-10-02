@@ -228,8 +228,8 @@ def executeTasks(List tasks, Boolean isParallel) {
 /**
  * Creates a closure for executing a task.
  *
- * @param task        The task object.
- * @param createStage Boolean indicating whether to create a stage for the task.
+ * @param task         The task object.
+ * @param createStage  Boolean indicating whether to create a stage for the task.
  * @return A closure that executes the task when called.
  */
 def createTaskClosure(task, createStage = true) {
@@ -239,16 +239,49 @@ def createTaskClosure(task, createStage = true) {
         withEnv(envVars) {
             if (createStage) {
                 stage(jobName) {
-                    echo "Starting job: ${jobName}"
-                    sh "bash ./execute.sh"
-                    echo "Completed job: ${jobName}"
+                    def exitCode = sh(
+                        label: "${jobName}",
+                        script: "bash ./execute.sh",
+                        returnStatus: true
+                    )
+                    handleExitCode(exitCode, jobName)
                 }
             } else {
-                echo "Starting job: ${jobName}"
-                sh "bash ./execute.sh"
-                echo "Completed job: ${jobName}"
+                def exitCode = sh(
+                    label: "${jobName}",
+                    script: "bash ./execute.sh",
+                    returnStatus: true
+                )
+                handleExitCode(exitCode, jobName)
             }
         }
+    }
+}
+
+/**
+ * Handles the exit code from the executed command.
+ *
+ * @param exitCode The exit code from the sh command.
+ * @param jobName  The name of the job for logging.
+ */
+def handleExitCode(int exitCode, String jobName) {
+    switch (exitCode) {
+        case 0:
+            echo "${jobName} succeeded (code 0)"
+            break
+        case 130:
+            unstable "${jobName} unstable (code 130)"
+            break
+        case 131:
+            currentBuild.result = 'ABORTED'
+            error "${jobName} aborted (code 131)"
+            break
+        case 132:
+            currentBuild.result = 'NOT_BUILT'
+            echo "${jobName} skipped (code 132)"
+            break
+        default:
+            error "${jobName} failed (code ${exitCode})"
     }
 }
 
