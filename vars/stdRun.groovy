@@ -31,7 +31,9 @@ def call(Map params = [:]) {
         // Retrieve tasks based on provided parameters
         def tasks = getTasks(hits, params)
         if (tasks.isEmpty()) {
-            unstable "No tasks to execute for the given parameters."
+            catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                error "No tasks to execute for the given parameters."
+            }
             return
         }
         // Execute the tasks
@@ -110,7 +112,9 @@ def getTasksByJobNames(hits, jobNames) {
         }
     }
     if (tasks.isEmpty()) {
-        unstable "No jobs found matching the provided jobNames."
+        catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+            error "No jobs found matching the provided jobNames."
+        }
     }
     return tasks
 }
@@ -141,11 +145,17 @@ def findTaskByJobName(hits, jobName) {
 def getTasksByBlockAndAction(hits, block, action, select = [:]) {
     def tasks = []
     if (!hits.containsKey(block)) {
-        echo "WARNING: Block '${block}' does not exist in the hits JSON. No tasks to execute."
+        catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+            echo "WARNING: Block '${block}' does not exist in the hits JSON. No tasks to execute."
+            error "Block '${block}' does not exist."
+        }
         return tasks
     }
     if (!hits[block].containsKey(action)) {
-        echo "WARNING: Action '${action}' does not exist within block '${block}' in the hits JSON. No tasks to execute."
+        catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+            echo "WARNING: Action '${action}' does not exist within block '${block}' in the hits JSON. No tasks to execute."
+            error "Action '${action}' does not exist in block '${block}'."
+        }
         return tasks
     }
     tasks = hits[block][action]
@@ -169,8 +179,9 @@ def getTasksByBlockAndAction(hits, block, action, select = [:]) {
         }
     }
     if (tasks.isEmpty()) {
-        echo "No tasks found for block '${block}', action '${action}' with select criteria: ${select}"
-        unstable "No tasks found matching the criteria."
+        catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+            error "No tasks found matching the criteria."
+        }
     }
     return tasks
 }
@@ -188,7 +199,9 @@ def executeTasks(List tasks, Boolean isParallel) {
         error "Duplicate job names found: ${duplicateJobNames.join(', ')}. Ensure each job has a unique name."
     }
     if (tasks.isEmpty()) {
-        unstable "No tasks to execute after filtering."
+        catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+            error "No tasks to execute after filtering."
+        }
         return
     }
     if (isParallel && tasks.size() > 1) {
