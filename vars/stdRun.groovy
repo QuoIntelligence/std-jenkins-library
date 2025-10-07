@@ -236,6 +236,20 @@ def createTaskClosure(task, createStage = true) {
     def jobName = task.jobName
     return {
         withEnv(envVars) {
+            if (task.skipped) {
+                if (createStage) {
+                    stage(jobName) {
+                        catchError(buildResult: 'SUCCESS', stageResult: 'NOT_BUILT') {
+                            throw new AbortException("${jobName} skipped due to proviso (skipped: true)")
+                        }
+                    }
+                } else {
+                    catchError(buildResult: 'SUCCESS', stageResult: 'NOT_BUILT') {
+                        throw new AbortException("${jobName} skipped due to proviso (skipped: true)")
+                    }
+                }
+                return
+            }
             if (createStage) {
                 stage(jobName) {
                     def exitCode = sh(
