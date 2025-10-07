@@ -1,4 +1,5 @@
 #!/usr/bin/env groovy
+import hudson.AbortException
 /**
  * Executes a list of jobs either in parallel or sequentially.
  *
@@ -32,7 +33,7 @@ def call(Map params = [:]) {
         def tasks = getTasks(hits, params)
         if (tasks.isEmpty()) {
             catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
-                error "No tasks to execute for the given parameters."
+                throw new AbortException("No tasks to execute for the given parameters.")
             }
             return
         }
@@ -113,7 +114,7 @@ def getTasksByJobNames(hits, jobNames) {
     }
     if (tasks.isEmpty()) {
         catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
-            error "No jobs found matching the provided jobNames."
+            throw new AbortException("No jobs found matching the provided jobNames.")
         }
     }
     return tasks
@@ -146,15 +147,13 @@ def getTasksByBlockAndAction(hits, block, action, select = [:]) {
     def tasks = []
     if (!hits.containsKey(block)) {
         catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
-            echo "WARNING: Block '${block}' does not exist in the hits JSON. No tasks to execute."
-            error "Block '${block}' does not exist."
+            throw new AbortException("Block '${block}' does not exist.")
         }
         return tasks
     }
     if (!hits[block].containsKey(action)) {
         catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
-            echo "WARNING: Action '${action}' does not exist within block '${block}' in the hits JSON. No tasks to execute."
-            error "Action '${action}' does not exist in block '${block}'."
+            throw new AbortException("Action '${action}' does not exist in block '${block}'.")
         }
         return tasks
     }
@@ -180,7 +179,7 @@ def getTasksByBlockAndAction(hits, block, action, select = [:]) {
     }
     if (tasks.isEmpty()) {
         catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
-            error "No tasks found matching the criteria."
+            throw new AbortException("No tasks found matching the criteria.")
         }
     }
     return tasks
@@ -200,7 +199,7 @@ def executeTasks(List tasks, Boolean isParallel) {
     }
     if (tasks.isEmpty()) {
         catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
-            error "No tasks to execute after filtering."
+            throw new AbortException("No tasks to execute after filtering.")
         }
         return
     }
@@ -270,21 +269,20 @@ def handleExitCode(int exitCode, String jobName) {
             break
         case 130:
             catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
-                error "${jobName} unstable (code 130)"
+                throw new AbortException("${jobName} unstable (code 130)")
             }
             break
         case 131:
-            catchError(buildResult: 'ABORTED', stageResult: 'ABORTED') {
-                error "${jobName} aborted (code 131)"
-            }
+            currentBuild.result = 'ABORTED'
+            throw new AbortException("${jobName} aborted (code 131)")
             break
         case 132:
             catchError(buildResult: 'SUCCESS', stageResult: 'NOT_BUILT') {
-                error "${jobName} skipped (code 132)"
+                throw new AbortException("${jobName} skipped (code 132)")
             }
             break
         default:
-            error "${jobName} failed (code ${exitCode})"
+            throw new AbortException("${jobName} failed (code ${exitCode})")
     }
 }
 /**
