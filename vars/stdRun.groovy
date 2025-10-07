@@ -269,15 +269,19 @@ def handleExitCode(int exitCode, String jobName) {
             echo "${jobName} succeeded (code 0)"
             break
         case 130:
-            unstable "${jobName} unstable (code 130)"
+            catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                error "${jobName} unstable (code 130)"
+            }
             break
         case 131:
-            currentBuild.result = 'ABORTED'
-            error "${jobName} aborted (code 131)"
+            catchError(buildResult: 'ABORTED', stageResult: 'ABORTED') {
+                error "${jobName} aborted (code 131)"
+            }
             break
         case 132:
-            currentBuild.result = 'NOT_BUILT'
-            echo "${jobName} skipped (code 132)"
+            catchError(buildResult: 'SUCCESS', stageResult: 'NOT_BUILT') {
+                error "${jobName} skipped (code 132)"
+            }
             break
         default:
             error "${jobName} failed (code ${exitCode})"
